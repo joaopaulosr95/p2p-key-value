@@ -28,13 +28,18 @@ import sys
 import utils
 
 # Logging setup
-logging.basicConfig(level=logging.DEBUG, format="[%(asctime)s][%(levelname)s]%(message)s",
-    datefmt="%m-%d-%Y %I:%M:%S %p")
+logging.basicConfig(level=logging.DEBUG, format="[%(asctime)s][%(levelname)s] %(message)s",
+                    datefmt="%m-%d-%Y %I:%M:%S %p")
 
-
+"""
+| ===================================================================
+| get_responses: watch network for query responses
+| ===================================================================
+"""
 def get_responses(sock):
     logger = logging.getLogger(__name__)
 
+    responses = 0
     while True:
         sock.settimeout(utils.RECV_TIMEOUT)
         try:
@@ -42,15 +47,17 @@ def get_responses(sock):
             sock.settimeout(None)
             if recv_data:
                 recv_header_size = struct.calcsize(utils.MESSAGE_FORMAT["RESPONSE"])
-                recv_message_type = struct.unpack(utils.MESSAGE_FORMAT["RESPONSE"], recv_data[:recv_header_size])
+                recv_message_type = struct.unpack(utils.MESSAGE_FORMAT["RESPONSE"], recv_data[:recv_header_size])[0]
                 if recv_message_type == utils.MESSAGE_TYPES["RESPONSE"]:
                     logger.info("%s:%d answers '%s'" % (ip_addr[0], ip_addr[1], recv_data[recv_header_size:]))
-        except socket.timeout:
-            logger.warning("Timeout for answers exceeded")
-            raise
+                    responses += 1
         except:
-            pass
-
+            logger.warning("Timeout for responses exceeded")
+            if responses > 0:
+                logger.warning("Received: %d responses", responses)
+                break
+            else:
+                raise
 
 """
 | ===================================================================
@@ -70,28 +77,40 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-
     def flush():
         sys.stdout.write("Enter a service name to search: ")
         sys.stdout.flush()
 
-
     flush()
-    receiving_responses = False
     while True:
-        user_input = raw_input()
-        if user_input.lower() == 'exit':
-            logging.info("Bye :)")
-            break
-        send_header = struct.pack(utils.MESSAGE_FORMAT["CLIREQ"], utils.MESSAGE_TYPES["CLIREQ"])
-        for i in range(0, 2):
-            sock.settimeout(utils.RECV_TIMEOUT)
-            try:
-                sock.sendto(send_header + user_input.lower(), (srv_host, int(srv_port)))
-                sock.settimeout(None)
-                get_responses(sock)
+        try:
+            user_input = raw_input()
+            if user_input.lower() == 'exit':
+                logger.info(" Bye =)")
                 break
-            except socket.timeout:
-                continue
-        flush()
+            elif len(user_input) == 0:
+                logger.warning("Your query must be at least 1 character long")
+            else:
+
+                # Prepare query
+                send_header = struct.pack(utils.MESSAGE_FORMAT["CLIREQ"], utils.MESSAGE_TYPES["CLIREQ"])
+                for i in range(0, 2):
+                    sock.settimeout(utils.RECV_TIMEOUT)
+                    try:
+                        sock.sendto(send_header + user_input.lower(), (srv_host, int(srv_port)))
+                        sock.settimeout(None)
+                        try:
+                            get_responses(sock)
+                            break
+                        except:
+                            raise
+                    except socket.timeout:
+                        if i == 1:
+                            logger.warning("Nothing was received after two attempts. Moving on...")
+                        else:
+                            logger.warning("Timeout for first attempt exceeded. Retrying...")
+            flush()
+        except KeyboardInterrupt:
+            print("\nBye =)")
+            break
     sock.close()

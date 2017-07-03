@@ -20,6 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+import socket
+import struct
 
 """
 | ===================================================================
@@ -33,3 +35,19 @@ MAX_BUFFER_SIZE = 1000
 MAX_SEQ = 4294967295L
 RECV_TIMEOUT = 4.0
 TTL = 3
+
+"""
+| ===================================================================
+| ip_to_int: converts ip address to long
+| ===================================================================
+"""
+def ip_to_int(ip):
+    return struct.unpack("!L", socket.inet_aton(ip))[0]
+
+"""
+| ===================================================================
+| int_to_ip: converts long to ip address
+| ===================================================================
+"""
+def int_to_ip(intip):
+    return socket.inet_ntoa(struct.pack("!L", intip))
