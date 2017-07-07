@@ -2,7 +2,10 @@
 # coding=utf-8
 
 """
-Copyright (c) 2017 Joao Paulo Bastos <joaopaulosr95@gmail.com>
+Copyright (c) 2017
+Gabriel Pacheco     <gabriel.pacheco@dcc.ufmg.br>
+Guilherme Sousa     <gadsousa@gmail.com>
+Joao Paulo Bastos   <joaopaulosr95@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,39 +28,12 @@ import logging
 import socket
 import struct
 import sys
-import utils
+
+from utils import utils, clientutils
 
 # Logging setup
 logging.basicConfig(level=logging.DEBUG, format="[%(asctime)s][%(levelname)s] %(message)s",
                     datefmt="%m-%d-%Y %I:%M:%S %p")
-
-"""
-| ===================================================================
-| get_responses: watch network for query responses
-| ===================================================================
-"""
-def get_responses(sock):
-    logger = logging.getLogger(__name__)
-
-    responses = 0
-    while True:
-        sock.settimeout(utils.RECV_TIMEOUT)
-        try:
-            recv_data, ip_addr = sock.recvfrom(utils.MAX_BUFFER_SIZE)
-            sock.settimeout(None)
-            if recv_data:
-                recv_header_size = struct.calcsize(utils.MESSAGE_FORMAT["RESPONSE"])
-                recv_message_type = struct.unpack(utils.MESSAGE_FORMAT["RESPONSE"], recv_data[:recv_header_size])[0]
-                if recv_message_type == utils.MESSAGE_TYPES["RESPONSE"]:
-                    logger.info("%s:%d answers '%s'" % (ip_addr[0], ip_addr[1], recv_data[recv_header_size:]))
-                    responses += 1
-        except:
-            logger.warning("Timeout for responses exceeded")
-            if responses > 0:
-                logger.warning("Received: %d responses", responses)
-                break
-            else:
-                raise
 
 """
 | ===================================================================
@@ -94,21 +70,7 @@ if __name__ == "__main__":
 
                 # Prepare query
                 send_header = struct.pack(utils.MESSAGE_FORMAT["CLIREQ"], utils.MESSAGE_TYPES["CLIREQ"])
-                for i in range(0, 2):
-                    sock.settimeout(utils.RECV_TIMEOUT)
-                    try:
-                        sock.sendto(send_header + user_input.lower(), (srv_host, int(srv_port)))
-                        sock.settimeout(None)
-                        try:
-                            get_responses(sock)
-                            break
-                        except:
-                            raise
-                    except socket.timeout:
-                        if i == 1:
-                            logger.warning("Nothing was received after two attempts. Moving on...")
-                        else:
-                            logger.warning("Timeout for first attempt exceeded. Retrying...")
+                clientutils.p2p_ask_kv(sock, send_header, user_input.lower(), srv_host, srv_port)
             flush()
         except KeyboardInterrupt:
             print("\nBye =)")

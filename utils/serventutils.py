@@ -42,7 +42,7 @@ def read_input_file(input_file):
     services = dict()
     with open(input_file) as input_file:
         for line in input_file.readlines():
-            line = line.strip(' ')
+            line = ''.join(line).strip(' ')
             if line != "#" and not line.isspace():
                 splitted_line = line.replace('\t', ' ').replace('  ', ' ').split()
                 service_key = splitted_line[0]  # Extracts service name
@@ -93,9 +93,6 @@ def forward_query(srv_sock, recv_data, recv_header_size, ttl, from_addr, exclude
         # to properly forward query message
         peer = tuple([peer.split(":")[0], int(peer.split(":")[1])])
         # print ("%s:%d => %s:%d" % (peer[0], int(peer[1]), peer_addr[0], int(peer_addr[1])))
-        print peer
-        print exclude_list
-        print peer in exclude_list
         if peer not in exclude_list:
             try:
                 srv_sock.sendto(send_message, peer)
